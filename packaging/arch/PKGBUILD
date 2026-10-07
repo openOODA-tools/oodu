@@ -1,0 +1,21 @@
+# Maintainer: openOODA-tools <ops@openooda.org>
+pkgname=oodu-bin
+_pkgname=oodu
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Fast parallel disk space estimator tracking inode counts and directory tree weights."
+arch=('x86_64')
+url="https://github.com/openOODA-tools/oodu"
+license=('Apache-2.0')
+depends=('glibc')
+provides=('oodu')
+conflicts=('oodu')
+source_x86_64=("${url}/releases/download/v${pkgver}/oodu-linux-x86_64"
+               "uninstall.sh::https://raw.githubusercontent.com/openOODA-tools/${_pkgname}/v${pkgver}/uninstall.sh")
+sha256sums_x86_64=('SKIP'
+                   'SKIP')
+
+package() {
+    install -Dm755 "${srcdir}/oodu-linux-x86_64" "${pkgdir}/usr/bin/oodu"
+    install -Dm755 uninstall.sh "${pkgdir}/usr/bin/oodu-uninstall"
+}
