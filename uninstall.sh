@@ -4,7 +4,7 @@
 # "Removes oodu binary, package installations, and cache."
 #
 # Usage:
-#   curl -fsSL https://openooda-toodu.github.io/oodu/uninstall.sh | bash
+#   curl -fsSL https://openooda-tools.github.io/oodu/uninstall.sh | bash
 #   or: ./uninstall.sh [options]
 #
 # Options:

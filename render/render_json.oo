@@ -1,0 +1,58 @@
+// # Disk Usage JSON Lines Serializer
+//
+// Logline: Serializes filesystem disk usage entries into structured JSON Lines format.
+//
+// Setup: Pure string serializer with character-safe escaping for machine consumers.
+//
+// Beats:
+//   1. Implement character-safe string escaping for file paths.
+//   2. Serialize individual DuEntry records with bytes, blocks, and inodes.
+//   3. Emit newline-delimited stream of JSON records.
+
+import "core/du_types.oo";
+
+pub fn json_escape(s: String) -> String {
+    let s_len: Int = chars_len(s);
+    let mut out: String = "";
+    let mut i: Int = 0;
+    while i < s_len {
+        let ch: String = str_slice(s, i, i + 1);
+        if ch == "\\" {
+            out = out + "\\\\";
+        } else if ch == "\"" {
+            out = out + "\\\"";
+        } else if ch == "\n" {
+            out = out + "\\n";
+        } else if ch == "\r" {
+            out = out + "\\r";
+        } else if ch == "\t" {
+            out = out + "\\t";
+        } else {
+            out = out + ch;
+        }
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn render_entry_json(entry: DuEntry) -> String {
+    return "{\"path\":\"" + json_escape(entry.path) + "\","
+        + "\"size_bytes\":" + entry.size_bytes.to_string() + ","
+        + "\"blocks\":" + entry.blocks.to_string() + ","
+        + "\"human_size\":\"" + format_human_size(entry.size_bytes) + "\","
+        + "\"inodes\":" + entry.inodes.to_string() + ","
+        + "\"depth\":" + entry.depth.to_string() + ","
+        + "\"is_dir\":" + (if entry.is_dir { "true" } else { "false" }) + "}";
+}
+
+pub fn render_json_entries(entries: List[DuEntry]) -> String {
+    let mut out: String = "";
+    let n: Int = list_len(entries);
+    let mut i: Int = 0;
+    while i < n {
+        let entry: DuEntry = list_get(entries, i);
+        out = out + render_entry_json(entry) + "\n";
+        i = i + 1;
+    }
+    return out;
+}

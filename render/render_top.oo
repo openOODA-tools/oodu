@@ -1,0 +1,55 @@
+// # Disk Space Hogs Bar Visualizer
+//
+// Logline: Formats top disk space consumers with progress bars, human sizes, and percentages.
+//
+// Setup: Pure string formatter rendering ranked usage visualizations for terminals and agents.
+//
+// Beats:
+//   1. Identify maximum capacity baseline among top candidates.
+//   2. Construct normalized 20-character proportional ASCII progress bars.
+//   3. Format ranked summary table with human units and relative proportions.
+
+import "core/du_types.oo";
+import "core/du_traversal.oo";
+
+pub fn render_top_breakdown(entries: List[DuEntry], limit: Int) -> String {
+    let top: List[DuEntry] = find_top_consumers(entries, limit);
+    let n: Int = list_len(top);
+    if n == 0 {
+        return "No entries analyzed.\n";
+    }
+
+    let mut max_bytes: Int = 1;
+    let mut i: Int = 0;
+    while i < n {
+        let e: DuEntry = list_get(top, i);
+        if e.size_bytes > max_bytes {
+            max_bytes = e.size_bytes;
+        }
+        i = i + 1;
+    }
+
+    let mut out: String = "Top Disk Space Consumers:\n";
+    i = 0;
+    while i < n {
+        let e: DuEntry = list_get(top, i);
+        let bar_len: Int = if max_bytes > 0 { e.size_bytes * 20 / max_bytes } else { 0 };
+        let mut bar: String = "";
+        let mut b: Int = 0;
+        while b < 20 {
+            if b < bar_len {
+                bar = bar + "#";
+            } else {
+                bar = bar + ".";
+            }
+            b = b + 1;
+        }
+
+        let rank: Int = i + 1;
+        out = out + "  " + rank.to_string() + ". [" + bar + "] "
+            + format_human_size(e.size_bytes) + "\t" + e.path + "\n";
+        i = i + 1;
+    }
+
+    return out;
+}

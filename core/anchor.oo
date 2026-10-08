@@ -1,0 +1,46 @@
+// # Disk Usage Core Subsystem Verification Anchor
+//
+// Logline: Substrate verification anchor for du types, tree generators, and traversal filters.
+//
+// Setup: Executes deterministic unit test assertions against core/ modules.
+//
+// Beats:
+//   1. Verify human-readable size formatting across orders of magnitude.
+//   2. Verify synthetic tree generation and entry count bounds.
+//   3. Verify traversal filtering, depth reduction, and top-consumer ranking.
+
+import "core/du_types.oo";
+import "core/du_synthetic.oo";
+import "core/du_traversal.oo";
+
+pub fn run_core_tests() -> Bool {
+    // Test 1: Human-readable size formatting
+    if format_human_size(512) != "512B" { return false; }
+    if format_human_size(1048576) != "1M" { return false; }
+    if format_human_size(1073741824) != "1G" { return false; }
+
+    // Test 2: Tree generation
+    let tree: List[DuEntry] = build_var_log_tree();
+    if list_len(tree) < 5 { return false; }
+
+    // Test 3: Formatting entry line
+    let mut opts: DuOpts = default_du_opts();
+    opts.human_readable = true;
+    let entry: DuEntry = list_get(tree, 0);
+    let line: String = format_entry_line(entry, opts);
+    if chars_len(line) == 0 { return false; }
+
+    // Test 4: Filtering
+    opts.summarize = true;
+    let filtered: List[DuEntry] = filter_entries(tree, opts);
+    if list_len(filtered) == 0 { return false; }
+
+    // Test 5: Top consumers
+    let top: List[DuEntry] = find_top_consumers(tree, 3);
+    if list_len(top) != 3 { return false; }
+    let first: DuEntry = list_get(top, 0);
+    let second: DuEntry = list_get(top, 1);
+    if first.size_bytes < second.size_bytes { return false; }
+
+    return true;
+}

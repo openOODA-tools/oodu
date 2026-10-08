@@ -1,0 +1,110 @@
+// # Disk Usage Core Types & Formatting
+//
+// Logline: Canonical data types, entry descriptors, option sets, and human-readable capacity formatters.
+//
+// Setup: Pure type declarations and arithmetic formatting routines for disk space metrics.
+//
+// Beats:
+//   1. Declare DuEntry and DuOpts structures.
+//   2. Implement default options constructor with POSIX standard baselines.
+//   3. Provide human-readable power-of-1024 unit formatting (B, K, M, G, T).
+
+pub type DuEntry = struct {
+    path: String,
+    size_bytes: Int,
+    blocks: Int,
+    inodes: Int,
+    depth: Int,
+    is_dir: Bool
+};
+
+pub type DuOpts = struct {
+    human_readable: Bool,
+    summarize: Bool,
+    all_files: Bool,
+    max_depth: Int,
+    apparent_size: Bool,
+    show_inodes: Bool,
+    block_size: Int,
+    sort_by_size: Bool,
+    top_limit: Int,
+    json_mode: Bool,
+    demo_mode: Bool,
+    mcp_mode: Bool,
+    show_version: Bool,
+    show_help: Bool,
+    paths: List[String]
+};
+
+pub fn default_du_opts() -> DuOpts {
+    return DuOpts {
+        human_readable: false,
+        summarize: false,
+        all_files: false,
+        max_depth: -1,
+        apparent_size: false,
+        show_inodes: false,
+        block_size: 1024,
+        sort_by_size: false,
+        top_limit: 0,
+        json_mode: false,
+        demo_mode: false,
+        mcp_mode: false,
+        show_version: false,
+        show_help: false,
+        paths: list_new()
+    };
+}
+
+pub fn format_human_size(bytes: Int) -> String {
+    if bytes < 1024 {
+        return bytes.to_string() + "B";
+    }
+    let kib: Int = bytes / 1024;
+    if kib < 1024 {
+        let dec: Int = (bytes % 1024) * 10 / 1024;
+        if dec == 0 {
+            return kib.to_string() + "K";
+        }
+        return kib.to_string() + "." + dec.to_string() + "K";
+    }
+    let mib: Int = kib / 1024;
+    if mib < 1024 {
+        let dec: Int = (kib % 1024) * 10 / 1024;
+        if dec == 0 {
+            return mib.to_string() + "M";
+        }
+        return mib.to_string() + "." + dec.to_string() + "M";
+    }
+    let gib: Int = mib / 1024;
+    if gib < 1024 {
+        let dec: Int = (mib % 1024) * 10 / 1024;
+        if dec == 0 {
+            return gib.to_string() + "G";
+        }
+        return gib.to_string() + "." + dec.to_string() + "G";
+    }
+    let tib: Int = gib / 1024;
+    let dec: Int = (gib % 1024) * 10 / 1024;
+    if dec == 0 {
+        return tib.to_string() + "T";
+    }
+    return tib.to_string() + "." + dec.to_string() + "T";
+}
+
+pub fn format_entry_line(entry: DuEntry, opts: DuOpts) -> String {
+    let mut size_str: String = "";
+    if opts.show_inodes {
+        size_str = entry.inodes.to_string();
+    } else if opts.human_readable {
+        size_str = format_human_size(entry.size_bytes);
+    } else {
+        let blk_cnt: Int = if entry.size_bytes == 0 {
+            0
+        } else {
+            (entry.size_bytes + opts.block_size - 1) / opts.block_size
+        };
+        size_str = blk_cnt.to_string();
+    }
+    return size_str + "\t" + entry.path;
+}

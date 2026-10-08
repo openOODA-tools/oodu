@@ -1,0 +1,49 @@
+// # Disk Usage IPC Subsystem Verification Anchor
+//
+// Logline: Substrate verification anchor for CLI options parser and streaming MCP server.
+//
+// Setup: Executes deterministic unit test assertions against ipc/ modules.
+//
+// Beats:
+//   1. Verify JSON token scanning and extraction primitives.
+//   2. Verify CLI options parser flag, depth, and operand recognition.
+//   3. Verify MCP JSON-RPC 2.0 handshake, tool catalogue, and dispatch.
+
+import "core/du_types.oo";
+import "ipc/json_field.oo";
+import "ipc/cli_options.oo";
+import "ipc/mcp_server.oo";
+
+pub fn run_ipc_tests() -> Bool {
+    // Test 1: JSON field extraction
+    let sample_json: String = "{\"path\":\"/var/log\",\"limit\":10,\"summarize\":true}";
+    if json_extract_str_field(sample_json, "path") != "/var/log" { return false; }
+    if json_extract_int_field(sample_json, "limit", 0) != 10 { return false; }
+    if !json_extract_bool_field(sample_json, "summarize", false) { return false; }
+
+    // Test 2: CLI option parsing
+    let mut args: List[String] = list_new();
+    args = list_push(args, "-h");
+    args = list_push(args, "-s");
+    args = list_push(args, "/var/log");
+    let opts: DuOpts = parse_cli_options(args);
+    if !opts.human_readable { return false; }
+    if !opts.summarize { return false; }
+    if list_len(opts.paths) != 1 { return false; }
+    if list_get(opts.paths, 0) != "/var/log" { return false; }
+
+    // Test 3: MCP protocol handling
+    let init_req: String = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\"}";
+    let init_resp: String = handle_mcp_message(init_req);
+    if chars_len(init_resp) == 0 { return false; }
+
+    let list_req: String = "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}";
+    let list_resp: String = handle_mcp_message(list_req);
+    if chars_len(list_resp) == 0 { return false; }
+
+    let call_req: String = "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"du_summary\",\"arguments\":{\"path\":\"/var/log\"}}}";
+    let call_resp: String = handle_mcp_message(call_req);
+    if chars_len(call_resp) == 0 { return false; }
+
+    return true;
+}

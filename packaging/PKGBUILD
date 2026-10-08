@@ -1,7 +1,7 @@
 # Maintainer: openOODA-tools <ops@openooda.org>
 pkgname=oodu-bin
 _pkgname=oodu
-pkgver=0.1.0
+pkgver=0.2.0
 pkgrel=1
 pkgdesc="Fast parallel disk space estimator tracking inode counts and directory tree weights."
 arch=('x86_64')

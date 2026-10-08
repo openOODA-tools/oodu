@@ -1,0 +1,109 @@
+// # Filesystem Tree Aggregation & Filtering
+//
+// Logline: Applies depth limits, directory-only filters, summary reductions, and size sorting.
+//
+// Setup: Pure entry aggregation engine implementing standard POSIX du filter semantics.
+//
+// Beats:
+//   1. Filter entry streams according to --summarize, --all, and --max-depth flags.
+//   2. Compute aggregate total size and block counts across entries.
+//   3. Sort and slice top disk capacity consumers.
+
+import "core/du_types.oo";
+
+pub fn filter_entries(entries: List[DuEntry], opts: DuOpts) -> List[DuEntry] {
+    let mut out: List[DuEntry] = list_new();
+    let n: Int = list_len(entries);
+    let mut i: Int = 0;
+
+    while i < n {
+        let entry: DuEntry = list_get(entries, i);
+        let mut keep: Bool = true;
+
+        if opts.summarize {
+            if entry.depth > 0 && i < n - 1 {
+                keep = false;
+            }
+        } else {
+            if !opts.all_files && !entry.is_dir {
+                keep = false;
+            }
+            if opts.max_depth >= 0 && entry.depth > opts.max_depth {
+                keep = false;
+            }
+        }
+
+        if keep {
+            out = list_push(out, entry);
+        }
+        i = i + 1;
+    }
+
+    return out;
+}
+
+pub fn calculate_total_usage(entries: List[DuEntry]) -> DuEntry {
+    let n: Int = list_len(entries);
+    if n == 0 {
+        return DuEntry { path: "total", size_bytes: 0, blocks: 0, inodes: 0, depth: 0, is_dir: true };
+    }
+    let last: DuEntry = list_get(entries, n - 1);
+    return DuEntry {
+        path: "total",
+        size_bytes: last.size_bytes,
+        blocks: last.blocks,
+        inodes: last.inodes,
+        depth: 0,
+        is_dir: true
+    };
+}
+
+pub fn find_top_consumers(entries: List[DuEntry], limit: Int) -> List[DuEntry] {
+    let n: Int = list_len(entries);
+    let mut pool: List[DuEntry] = list_new();
+    let mut i: Int = 0;
+    while i < n {
+        pool = list_push(pool, list_get(entries, i));
+        i = i + 1;
+    }
+
+    // Selection sort descending by size_bytes
+    let p_len: Int = list_len(pool);
+    let mut sorted: List[DuEntry] = list_new();
+    let target_count: Int = if limit > 0 && limit < p_len { limit } else { p_len };
+
+    let mut step: Int = 0;
+    while step < target_count {
+        let mut max_idx: Int = -1;
+        let mut max_size: Int = -1;
+        let mut j: Int = 0;
+        let curr_len: Int = list_len(pool);
+        while j < curr_len {
+            let e: DuEntry = list_get(pool, j);
+            if e.size_bytes > max_size {
+                max_size = e.size_bytes;
+                max_idx = j;
+            }
+            j = j + 1;
+        }
+
+        if max_idx >= 0 {
+            let best: DuEntry = list_get(pool, max_idx);
+            sorted = list_push(sorted, best);
+
+            // Remove selected element from pool
+            let mut next_pool: List[DuEntry] = list_new();
+            let mut k: Int = 0;
+            while k < curr_len {
+                if k != max_idx {
+                    next_pool = list_push(next_pool, list_get(pool, k));
+                }
+                k = k + 1;
+            }
+            pool = next_pool;
+        }
+        step = step + 1;
+    }
+
+    return sorted;
+}

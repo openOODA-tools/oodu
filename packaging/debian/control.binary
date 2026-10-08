@@ -1,0 +1,10 @@
+Package: oodu
+Version: 0.2.0-1
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: openOODA-tools <ops@openooda.org>
+Depends: libc6
+Description: Sovereign POSIX Disk Usage Analyzer
+ Fast parallel disk space estimator tracking inode counts and directory tree weights
+ in pure native openOODA with zero ambient authority and streaming MCP.

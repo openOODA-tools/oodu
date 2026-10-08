@@ -1,0 +1,184 @@
+// # Streaming MCP Server for Disk Usage
+//
+// Logline: JSON-RPC 2.0 stdio server providing sovereign disk space estimation and top hogs tools.
+//
+// Setup: Bridges standard input/output streaming protocol to disk usage traversal and renderers.
+//
+// Beats:
+//   1. Handle MCP initialize handshake with server metadata and capability declarations.
+//   2. Expose tools/list catalogue with five sovereign disk usage tools.
+//   3. Dispatch tools/call for analyze, top, inodes, summary, and demo.
+//   4. Deliver streaming JSON-RPC responses over standard output.
+
+import "core/du_types.oo";
+import "core/du_synthetic.oo";
+import "core/du_traversal.oo";
+import "render/render_table.oo";
+import "render/render_json.oo";
+import "render/render_top.oo";
+import "ipc/json_field.oo";
+
+fn build_error(id: String, code: Int, msg: String) -> String {
+    return "{\"jsonrpc\":\"2.0\",\"id\":" + id + ",\"error\":{\"code\":"
+        + code.to_string() + ",\"message\":\"" + json_escape(msg) + "\"}}\n";
+}
+
+fn build_tool_result(id: String, text: String) -> String {
+    return "{\"jsonrpc\":\"2.0\",\"id\":" + id + ",\"result\":{\"content\":[{\"type\":\"text\",\"text\":\""
+        + json_escape(text) + "\"}]}}\n";
+}
+
+pub fn render_mcp_init(id: String) -> String {
+    return "{\"jsonrpc\":\"2.0\",\"id\":" + id
+        + ",\"result\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{\"tools\":{}},\"serverInfo\":{\"name\":\"oodu\",\"version\":\"0.2.0\"}}}\n";
+}
+
+pub fn render_mcp_tools_list(id: String) -> String {
+    let mut out: String = "{\"jsonrpc\":\"2.0\",\"id\":" + id + ",\"result\":{\"tools\":[";
+    out = out + "{\"name\":\"du_analyze\",\"description\":\"Analyze recursive disk space usage for directory path.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"},\"max_depth\":{\"type\":\"integer\"},\"summarize\":{\"type\":\"boolean\"},\"json_mode\":{\"type\":\"boolean\"}}}}";
+    out = out + ",{\"name\":\"du_top\",\"description\":\"Identify largest disk space consumers and hogs within directory hierarchy.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"},\"limit\":{\"type\":\"integer\"}}}}";
+    out = out + ",{\"name\":\"du_inodes\",\"description\":\"Inspect inode consumption counts across directory hierarchy.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"},\"max_depth\":{\"type\":\"integer\"}}}}";
+    out = out + ",{\"name\":\"du_summary\",\"description\":\"Produce concise total capacity and block usage summary for target directory.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"}}}}";
+    out = out + ",{\"name\":\"du_demo\",\"description\":\"Run synthetic demonstration of system and project disk usage analysis.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"json_mode\":{\"type\":\"boolean\"}}}}";
+    out = out + "]}}\n";
+    return out;
+}
+
+pub fn handle_mcp_call(id: String, tool_name: String, req: String) -> String {
+    if tool_name == "du_demo" {
+        let json_mode: Bool = json_extract_bool_field(req, "json_mode", false);
+        let tree: List[DuEntry] = build_var_log_tree();
+        let mut opts: DuOpts = default_du_opts();
+        opts.human_readable = true;
+        let out: String = if json_mode {
+            render_json_entries(tree)
+        } else {
+            "=== Synthetic Disk Usage Showcase (/var/log) ===\n" + render_table_entries(tree, opts, true)
+        };
+        return build_tool_result(id, out);
+    }
+
+    if tool_name == "du_analyze" {
+        let p: String = json_extract_str_field(req, "path");
+        let path: String = if chars_len(p) > 0 { p } else { "." };
+        let mut opts: DuOpts = default_du_opts();
+        opts.human_readable = true;
+        opts.max_depth = json_extract_int_field(req, "max_depth", -1);
+        opts.summarize = json_extract_bool_field(req, "summarize", false);
+        let json_mode: Bool = json_extract_bool_field(req, "json_mode", false);
+
+        let tree: List[DuEntry] = get_synthetic_tree(path);
+        let filtered: List[DuEntry] = filter_entries(tree, opts);
+        let out: String = if json_mode {
+            render_json_entries(filtered)
+        } else {
+            render_table_entries(filtered, opts, false)
+        };
+        return build_tool_result(id, out);
+    }
+
+    if tool_name == "du_top" {
+        let p: String = json_extract_str_field(req, "path");
+        let path: String = if chars_len(p) > 0 { p } else { "." };
+        let limit: Int = json_extract_int_field(req, "limit", 5);
+        let tree: List[DuEntry] = get_synthetic_tree(path);
+        return build_tool_result(id, render_top_breakdown(tree, limit));
+    }
+
+    if tool_name == "du_inodes" {
+        let p: String = json_extract_str_field(req, "path");
+        let path: String = if chars_len(p) > 0 { p } else { "." };
+        let mut opts: DuOpts = default_du_opts();
+        opts.show_inodes = true;
+        opts.max_depth = json_extract_int_field(req, "max_depth", -1);
+        let tree: List[DuEntry] = get_synthetic_tree(path);
+        let filtered: List[DuEntry] = filter_entries(tree, opts);
+        return build_tool_result(id, render_table_entries(filtered, opts, false));
+    }
+
+    if tool_name == "du_summary" {
+        let p: String = json_extract_str_field(req, "path");
+        let path: String = if chars_len(p) > 0 { p } else { "." };
+        let tree: List[DuEntry] = get_synthetic_tree(path);
+        let total: DuEntry = calculate_total_usage(tree);
+        let mut opts: DuOpts = default_du_opts();
+        opts.human_readable = true;
+        return build_tool_result(id, format_entry_line(total, opts));
+    }
+
+    return build_error(id, -32601, "Method or tool not found: " + tool_name);
+}
+
+pub fn handle_mcp_message(req: String) -> String {
+    let id_str: String = json_extract_str_field(req, "id");
+    let id_int: Int = json_extract_int_field(req, "id", -1);
+    let id: String = if chars_len(id_str) > 0 {
+        "\"" + id_str + "\""
+    } else if id_int >= 0 {
+        id_int.to_string()
+    } else {
+        "1"
+    };
+    let method: String = json_extract_str_field(req, "method");
+
+    if method == "initialize" {
+        return render_mcp_init(id);
+    }
+    if method == "notifications/initialized" {
+        return "";
+    }
+    if method == "tools/list" {
+        return render_mcp_tools_list(id);
+    }
+    if method == "tools/call" {
+        let tool_name: String = json_extract_str_field(req, "name");
+        return handle_mcp_call(id, tool_name, req);
+    }
+    if method == "shutdown" {
+        return "{\"jsonrpc\":\"2.0\",\"id\":" + id + ",\"result\":null}\n";
+    }
+    return build_error(id, -32601, "Method not found: " + method);
+}
+
+fn find_newline_pos(s: String) -> Int {
+    let n: Int = chars_len(s);
+    let mut i: Int = 0;
+    while i < n {
+        if byte_at(s, i) == 10 {
+            return i;
+        }
+        i = i + 1;
+    }
+    return -1;
+}
+
+pub fn run_mcp_server(fr: &FsReadCap) {
+    let mut buf: String = "";
+    let mut running: Bool = true;
+    while running {
+        let r: Result[String, String] = oo_read_stdin_chunk(fr, 4096);
+        if !r.is_ok() {
+            running = false;
+        } else {
+            let chunk: String = match r { Ok(s) => s, Err(_) => "" };
+            if chars_len(chunk) == 0 {
+                running = false;
+            } else {
+                buf = buf + chunk;
+                let mut nl_pos: Int = find_newline_pos(buf);
+                while nl_pos >= 0 {
+                    let line: String = str_slice(buf, 0, nl_pos);
+                    buf = str_slice(buf, nl_pos + 1, chars_len(buf));
+                    let trimmed: String = str_trim(line);
+                    if chars_len(trimmed) > 0 {
+                        let resp: String = handle_mcp_message(trimmed);
+                        if chars_len(resp) > 0 {
+                            print(resp);
+                        }
+                    }
+                    nl_pos = find_newline_pos(buf);
+                }
+            }
+        }
+    }
+}

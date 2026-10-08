@@ -1,0 +1,52 @@
+// # Synthetic Filesystem Usage Trees
+//
+// Logline: Generates realistic multi-level directory trees and file weights for sandbox analysis.
+//
+// Setup: Pure dataset generator mapping directory hierarchies, apparent sizes, and inode allocations.
+//
+// Beats:
+//   1. Build sample system hierarchy trees (/var/log, /usr/lib, /home/user).
+//   2. Populate representative file and directory weights with block accounting.
+//   3. Support synthetic traversal dispatch for sandbox and demonstration modes.
+
+import "core/du_types.oo";
+
+pub fn build_var_log_tree() -> List[DuEntry] {
+    let mut entries: List[DuEntry] = list_new();
+    entries = list_push(entries, DuEntry { path: "/var/log/apt/history.log", size_bytes: 524288, blocks: 128, inodes: 1, depth: 3, is_dir: false });
+    entries = list_push(entries, DuEntry { path: "/var/log/apt/term.log", size_bytes: 1572864, blocks: 384, inodes: 1, depth: 3, is_dir: false });
+    entries = list_push(entries, DuEntry { path: "/var/log/apt", size_bytes: 2097152, blocks: 512, inodes: 14, depth: 2, is_dir: true });
+    entries = list_push(entries, DuEntry { path: "/var/log/nginx/access.log", size_bytes: 12582912, blocks: 3072, inodes: 1, depth: 3, is_dir: false });
+    entries = list_push(entries, DuEntry { path: "/var/log/nginx/error.log", size_bytes: 2097152, blocks: 512, inodes: 1, depth: 3, is_dir: false });
+    entries = list_push(entries, DuEntry { path: "/var/log/nginx", size_bytes: 14680064, blocks: 3584, inodes: 8, depth: 2, is_dir: true });
+    entries = list_push(entries, DuEntry { path: "/var/log/journal/system.journal", size_bytes: 134217728, blocks: 32768, inodes: 1, depth: 3, is_dir: false });
+    entries = list_push(entries, DuEntry { path: "/var/log/journal", size_bytes: 134217728, blocks: 32768, inodes: 32, depth: 2, is_dir: true });
+    entries = list_push(entries, DuEntry { path: "/var/log/syslog", size_bytes: 25165824, blocks: 6144, inodes: 1, depth: 2, is_dir: false });
+    entries = list_push(entries, DuEntry { path: "/var/log/auth.log", size_bytes: 8388608, blocks: 2048, inodes: 1, depth: 2, is_dir: false });
+    entries = list_push(entries, DuEntry { path: "/var/log", size_bytes: 184549376, blocks: 45056, inodes: 320, depth: 1, is_dir: true });
+    return entries;
+}
+
+pub fn build_project_tree(root: String) -> List[DuEntry] {
+    let mut entries: List[DuEntry] = list_new();
+    let base: String = if chars_len(root) > 0 && root != "." { root } else { "project" };
+
+    entries = list_push(entries, DuEntry { path: base + "/src/main.oo", size_bytes: 4096, blocks: 1, inodes: 1, depth: 2, is_dir: false });
+    entries = list_push(entries, DuEntry { path: base + "/src/parser.oo", size_bytes: 16384, blocks: 4, inodes: 1, depth: 2, is_dir: false });
+    entries = list_push(entries, DuEntry { path: base + "/src", size_bytes: 20480, blocks: 5, inodes: 12, depth: 1, is_dir: true });
+    entries = list_push(entries, DuEntry { path: base + "/.git/objects", size_bytes: 83886080, blocks: 20480, inodes: 1420, depth: 2, is_dir: true });
+    entries = list_push(entries, DuEntry { path: base + "/.git", size_bytes: 89128960, blocks: 21760, inodes: 1540, depth: 1, is_dir: true });
+    entries = list_push(entries, DuEntry { path: base + "/node_modules/lodash", size_bytes: 4194304, blocks: 1024, inodes: 180, depth: 2, is_dir: true });
+    entries = list_push(entries, DuEntry { path: base + "/node_modules", size_bytes: 471859200, blocks: 115200, inodes: 14200, depth: 1, is_dir: true });
+    entries = list_push(entries, DuEntry { path: base + "/target/debug", size_bytes: 838860800, blocks: 204800, inodes: 890, depth: 2, is_dir: true });
+    entries = list_push(entries, DuEntry { path: base + "/target", size_bytes: 1288490188, blocks: 314572, inodes: 2400, depth: 1, is_dir: true });
+    entries = list_push(entries, DuEntry { path: base, size_bytes: 1849500000, blocks: 451537, inodes: 18152, depth: 0, is_dir: true });
+    return entries;
+}
+
+pub fn get_synthetic_tree(path: String) -> List[DuEntry] {
+    if path == "/var/log" || path == "/var" || path == "var" {
+        return build_var_log_tree();
+    }
+    return build_project_tree(path);
+}

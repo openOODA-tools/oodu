@@ -54,17 +54,28 @@ oodu-uninstall
 ## 2. CLI Usage
 
 ```
-usage: oodu [options] [ARGUMENTS]...
+usage: oodu [options] [PATH]...
 
-Fast parallel disk space estimator tracking inode counts and directory tree weights.
+Estimate file space usage and directory tree weights.
 
 Options:
-  -h, --help           display this help and exit
-  -v, --version        output version information and exit
-      --json           output formatted as JSON Lines
-      --color <WHEN>   colorize output: auto, always, never [default: auto]
-      --theme <NAME>   override active oote palette
+  -a, --all            write counts for all files, not just directories
+  -s, --summarize      display only a total for each argument
+  -d, --max-depth <N>  print total for directory only if it is N or fewer levels below
+  -h, --human-readable print sizes in human readable format (e.g., 1K 234M 2G)
+  -k                   like --block-size=1K
+  -m                   like --block-size=1M
+  -b                   like --apparent-size --block-size=1
+      --apparent-size  print apparent sizes rather than disk usage
+      --inodes         list inode usage information instead of block usage
+      --sort           sort output entries by capacity descending
+      --top <N>        show visual breakdown of top N capacity consumers
+  -j, --json           output formatted as structured JSON Lines
+  -D, --demo           synthetic disk usage analysis demonstration
       --mcp            run as Model Context Protocol stdio server
+      --test           run internal verification anchor suite
+  -v, --version        output version information and exit
+      --help           display this help and exit
 ```
 
 ---
@@ -79,11 +90,13 @@ Options:
 
 ## 4. Model Context Protocol (MCP)
 
-When invoked with `--mcp`, `oodu` runs a JSON-RPC 2.0 stdio server providing structured tools for AI coding agents:
+When invoked with `--mcp`, `oodu` runs a JSON-RPC 2.0 stdio server providing 5 sovereign tools for AI coding agents:
 
-```bash
-oodu --mcp
-```
+* `du_analyze`: Analyze recursive disk space usage for directory path (`path`, `max_depth`, `summarize`, `apparent_size`, `json_mode`).
+* `du_top`: Identify largest disk space consumers and hogs within directory hierarchy (`path`, `limit`).
+* `du_inodes`: Inspect inode consumption counts across directory hierarchy (`path`, `max_depth`).
+* `du_summary`: Produce concise total capacity and block usage summary for target directory (`path`).
+* `du_demo`: Run synthetic demonstration of system and project disk usage analysis (`json_mode`).
 
 ---
 

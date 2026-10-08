@@ -1,0 +1,32 @@
+// # Standard POSIX Du Table Formatter
+//
+// Logline: Formats disk space entry lists with tab-separated size headers and total lines.
+//
+// Setup: Pure string formatter applying human-readable or block count alignments.
+//
+// Beats:
+//   1. Iterate DuEntry list generating formatted lines.
+//   2. Apply block size or human unit transformation.
+//   3. Render optional total summary line.
+
+import "core/du_types.oo";
+import "core/du_traversal.oo";
+
+pub fn render_table_entries(entries: List[DuEntry], opts: DuOpts, show_total: Bool) -> String {
+    let mut out: String = "";
+    let n: Int = list_len(entries);
+    let mut i: Int = 0;
+
+    while i < n {
+        let entry: DuEntry = list_get(entries, i);
+        out = out + format_entry_line(entry, opts) + "\n";
+        i = i + 1;
+    }
+
+    if show_total && n > 0 {
+        let total: DuEntry = calculate_total_usage(entries);
+        out = out + format_entry_line(total, opts) + "\n";
+    }
+
+    return out;
+}

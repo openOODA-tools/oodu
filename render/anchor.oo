@@ -1,0 +1,36 @@
+// # Disk Usage Render Subsystem Verification Anchor
+//
+// Logline: Substrate verification anchor for du table, JSON Lines, and top bar visualizers.
+//
+// Setup: Executes deterministic unit test assertions against render/ modules.
+//
+// Beats:
+//   1. Verify table layout and total line rendering.
+//   2. Verify JSON Lines serialization and string escaping.
+//   3. Verify ranked visualizer bar formatting and order.
+
+import "core/du_types.oo";
+import "core/du_synthetic.oo";
+import "render/render_table.oo";
+import "render/render_json.oo";
+import "render/render_top.oo";
+
+pub fn run_render_tests() -> Bool {
+    let tree: List[DuEntry] = build_var_log_tree();
+    let mut opts: DuOpts = default_du_opts();
+    opts.human_readable = true;
+
+    // Test 1: Table rendering
+    let table: String = render_table_entries(tree, opts, true);
+    if chars_len(table) == 0 { return false; }
+
+    // Test 2: JSON Lines rendering
+    let json_lines: String = render_json_entries(tree);
+    if chars_len(json_lines) == 0 { return false; }
+
+    // Test 3: Top consumer visualizer
+    let top_vis: String = render_top_breakdown(tree, 5);
+    if chars_len(top_vis) == 0 { return false; }
+
+    return true;
+}

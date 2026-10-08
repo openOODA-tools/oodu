@@ -1,0 +1,118 @@
+// # JSON Token Scanner & Field Extractor
+//
+// Logline: Minimal character-safe JSON parser extracting strings, booleans, and integers.
+//
+// Setup: Pure string scanning algorithms for MCP JSON-RPC 2.0 protocol handling.
+//
+// Beats:
+//   1. Scan key boundaries and locate corresponding value tokens.
+//   2. Extract string values handling escape sequences.
+//   3. Extract boolean and integer primitive tokens.
+//   4. Deliver sanitized field strings for MCP tool dispatch.
+
+pub fn json_escape(s: String) -> String {
+    let n: Int = chars_len(s);
+    let mut out: String = "";
+    let mut i: Int = 0;
+    while i < n {
+        let b: Int = byte_at(s, i);
+        if b == 92 {
+            out = out + "\\\\";
+        } else if b == 34 {
+            out = out + "\\\"";
+        } else if b == 10 {
+            out = out + "\\n";
+        } else if b == 13 {
+            out = out + "\\r";
+        } else if b == 9 {
+            out = out + "\\t";
+        } else {
+            out = out + str_slice(s, i, i + 1);
+        }
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn json_extract_str_field(json: String, key: String) -> String {
+    let needle: String = "\"" + key + "\"";
+    let n: Int = chars_len(json);
+    let needle_len: Int = chars_len(needle);
+    let mut i: Int = 0;
+    while i + needle_len <= n {
+        if str_slice(json, i, i + needle_len) == needle {
+            let mut j: Int = i + needle_len;
+            while j < n && (byte_at(json, j) == 32 || byte_at(json, j) == 58 || byte_at(json, j) == 9) {
+                j = j + 1;
+            }
+            if j < n && byte_at(json, j) == 34 {
+                let start: Int = j + 1;
+                let mut end: Int = start;
+                while end < n {
+                    if byte_at(json, end) == 34 && byte_at(json, end - 1) != 92 {
+                        return str_slice(json, start, end);
+                    }
+                    end = end + 1;
+                }
+            }
+        }
+        i = i + 1;
+    }
+    return "";
+}
+
+pub fn json_extract_bool_field(json: String, key: String, default_val: Bool) -> Bool {
+    let needle: String = "\"" + key + "\"";
+    let n: Int = chars_len(json);
+    let needle_len: Int = chars_len(needle);
+    let mut i: Int = 0;
+    while i + needle_len <= n {
+        if str_slice(json, i, i + needle_len) == needle {
+            let mut j: Int = i + needle_len;
+            while j < n && (byte_at(json, j) == 32 || byte_at(json, j) == 58) {
+                j = j + 1;
+            }
+            if j + 4 <= n && str_slice(json, j, j + 4) == "true" {
+                return true;
+            }
+            if j + 5 <= n && str_slice(json, j, j + 5) == "false" {
+                return false;
+            }
+        }
+        i = i + 1;
+    }
+    return default_val;
+}
+
+pub fn json_extract_int_field(json: String, key: String, default_val: Int) -> Int {
+    let needle: String = "\"" + key + "\"";
+    let n: Int = chars_len(json);
+    let needle_len: Int = chars_len(needle);
+    let mut i: Int = 0;
+    while i + needle_len <= n {
+        if str_slice(json, i, i + needle_len) == needle {
+            let mut j: Int = i + needle_len;
+            while j < n && (byte_at(json, j) == 32 || byte_at(json, j) == 58) {
+                j = j + 1;
+            }
+            let start: Int = j;
+            let mut end: Int = start;
+            while end < n && byte_at(json, end) >= 48 && byte_at(json, end) <= 57 {
+                end = end + 1;
+            }
+            if end > start {
+                let num_str: String = str_slice(json, start, end);
+                let mut res: Int = 0;
+                let mut k: Int = 0;
+                let k_len: Int = chars_len(num_str);
+                while k < k_len {
+                    res = res * 10 + (byte_at(num_str, k) - 48);
+                    k = k + 1;
+                }
+                return res;
+            }
+        }
+        i = i + 1;
+    }
+    return default_val;
+}
